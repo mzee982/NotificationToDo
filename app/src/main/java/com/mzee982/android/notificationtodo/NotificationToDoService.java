@@ -9,11 +9,9 @@ import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationCompat;
 
 import java.util.HashMap;
-import java.util.Iterator;
 
 public class NotificationToDoService extends NotificationListenerService {
 
-    private static final String TAG = NotificationToDoService.class.getSimpleName();
     private static final int ONGOING_NOTIFICATION_ID = (int)System.currentTimeMillis();
 
     private AppList mAppList;
@@ -25,7 +23,7 @@ public class NotificationToDoService extends NotificationListenerService {
 
         //
         mAppList = new AppList(this);
-        mRegisteredNotifications = new HashMap<String,ToDoNotification>();
+        mRegisteredNotifications = new HashMap<>();
 
         /*
          * Post ongoing notification
@@ -58,7 +56,7 @@ public class NotificationToDoService extends NotificationListenerService {
         unregisterNotifications();
 
         // Remove ongoing notification
-//        stopForeground(true);
+        stopForeground(true);
 
         super.onDestroy();
     }
@@ -69,7 +67,7 @@ public class NotificationToDoService extends NotificationListenerService {
         // Update the notification
         if (isNotificationSelected(sbn)) {
             ToDoNotification toDoNotification = new ToDoNotification(sbn);
-            toDoNotification.register(this, mRegisteredNotifications);
+            toDoNotification.register(mRegisteredNotifications);
         }
 
     }
@@ -82,7 +80,7 @@ public class NotificationToDoService extends NotificationListenerService {
             Notification notification = toDoNotification.getNotification();
 
             //
-            toDoNotification.unregister(this, mRegisteredNotifications);
+            toDoNotification.unregister(mRegisteredNotifications);
 
             //
             Intent popupIntent = new Intent(this, PopupActivity.class);
@@ -100,9 +98,8 @@ public class NotificationToDoService extends NotificationListenerService {
         boolean packageSelected = (mAppList != null) && mAppList.isPackageSelected(sbn.getPackageName());
         boolean selfPackage = sbn.getPackageName().equals(getPackageName());
         boolean selfNotificationId = sbn.getId() == ONGOING_NOTIFICATION_ID;
-        boolean emptyNotification = sbn.getNotification().contentView.getLayoutId() == R.layout.notification_empty;
 
-        return packageSelected && !(selfPackage && selfNotificationId) && !emptyNotification;
+        return packageSelected && !(selfPackage && selfNotificationId);
     }
 
     private void registerNotifications() {
@@ -112,22 +109,13 @@ public class NotificationToDoService extends NotificationListenerService {
             for (StatusBarNotification sbn : statusBarNotifications) {
                 if (isNotificationSelected(sbn)) {
                     ToDoNotification toDoNotification = new ToDoNotification(sbn);
-                    toDoNotification.register(this, mRegisteredNotifications);
+                    toDoNotification.register(mRegisteredNotifications);
                 }
             }
         }
     }
 
     private void unregisterNotifications() {
-        Iterator<String> keyIterator = mRegisteredNotifications.keySet().iterator();
-
-        while (keyIterator.hasNext()) {
-            String key = keyIterator.next();
-            ToDoNotification toDoNotification = mRegisteredNotifications.get(key);
-
-            toDoNotification.cleanup(this, mRegisteredNotifications);
-        }
-
         mRegisteredNotifications.clear();
     }
 
