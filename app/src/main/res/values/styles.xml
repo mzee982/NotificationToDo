@@ -1,0 +1,15 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light">
+        <!-- Customize your theme here. -->
+    </style>
+
+    <style name="PopupTheme" parent="Theme.AppCompat.Light.Dialog">
+        <item name="android:windowNoTitle">false</item>
+        <!--<item name="android:windowAnimationStyle">@android:style/Animation.Toast</item>-->
+        <!--<item name="android:windowEnterAnimation">@android:anim/fade_in</item>-->
+        <!--<item name="android:windowExitAnimation">@android:anim/fade_out</item>-->
+    </style>
+
+</resources>
