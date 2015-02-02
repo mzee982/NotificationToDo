@@ -83,11 +83,10 @@ public class NotificationToDoService extends NotificationListenerService {
             toDoNotification.unregister(mRegisteredNotifications);
 
             //
-            Intent popupIntent = new Intent(this, PopupActivity.class);
-            popupIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            popupIntent.putExtra("PACKAGE_NAME", sbn.getPackageName());
-            popupIntent.putExtra("TITLE", notification.extras.getString(Notification.EXTRA_TITLE));
-            popupIntent.putExtra("TEXT", notification.extras.getString(Notification.EXTRA_TEXT));
+            Intent popupIntent = PopupActivity.newIntent(this,
+                                    sbn.getPackageName(),
+                                    notification.extras.getString(Notification.EXTRA_TITLE),
+                                    notification.extras.getString(Notification.EXTRA_TEXT));
 
             startActivity(popupIntent);
         }

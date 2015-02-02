@@ -24,7 +24,9 @@
         <activity
             android:name=".PopupActivity"
             android:label="@string/title_activity_popup"
-            android:theme="@style/PopupTheme">
+            android:theme="@style/PopupActivityTheme"
+            android:launchMode="singleInstance"
+            android:finishOnTaskLaunch="true">
         </activity>
 
         <service

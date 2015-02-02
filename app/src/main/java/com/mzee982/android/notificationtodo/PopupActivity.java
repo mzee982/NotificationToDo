@@ -1,98 +1,89 @@
 package com.mzee982.android.notificationtodo;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.WindowManager;
-import android.widget.ImageButton;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
+public class PopupActivity extends Activity implements PopupDialogFragment.PopupDialogListener {
 
-public class PopupActivity extends Activity {
+    private static final String EXTRA_PACKAGE_NAME = "EXTRA_PACKAGE_NAME";
+    private static final String EXTRA_TITLE = "EXTRA_TITLE";
+    private static final String EXTRA_TEXT = "EXTRA_TEXT";
+    private static final String TAG_POPUP_DIALOG = "TAG_POPUP_DIALOG";
 
     String mExtraPackageName;
     String mExtraTitle;
     String mExtraText;
 
+    public static Intent newIntent(Context context, String packageName, String title, String text) {
+        Intent popupIntent = new Intent(context, PopupActivity.class);
+        popupIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        popupIntent.putExtra(EXTRA_PACKAGE_NAME, packageName);
+        popupIntent.putExtra(EXTRA_TITLE, title);
+        popupIntent.putExtra(EXTRA_TEXT, text);
+
+        return popupIntent;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        WindowManager.LayoutParams params = this.getWindow().getAttributes();
-        params.gravity = Gravity.BOTTOM;
-
-        LayoutInflater inflater = getLayoutInflater();
-        LinearLayout layout = (LinearLayout) inflater.inflate(R.layout.activity_popup, null);
-
+        //
         Intent intent = getIntent();
 
         if ((intent != null) && (intent.getExtras() != null)) {
             Bundle intentExtras = intent.getExtras();
 
-            mExtraPackageName = intentExtras.getString("PACKAGE_NAME");
-            mExtraTitle = intentExtras.getString("TITLE");
-            mExtraText = intentExtras.getString("TEXT");
+            mExtraPackageName = intentExtras.getString(EXTRA_PACKAGE_NAME);
+            mExtraTitle = intentExtras.getString(EXTRA_TITLE);
+            mExtraText = intentExtras.getString(EXTRA_TEXT);
         }
 
-        try {
-            Drawable anyDoIcon = getPackageManager().getApplicationIcon("com.anydo");
-            Drawable googleKeepIcon = getPackageManager().getApplicationIcon("com.google.android.keep");
-
-            ImageButton buttonAnyDo = (ImageButton) layout.findViewById(R.id.imageButtonAnyDo);
-            ImageButton buttonGoogleKeep = (ImageButton) layout.findViewById(R.id.imageButtonGoogleKeep);
-
-            buttonAnyDo.setImageDrawable(anyDoIcon);
-            buttonGoogleKeep.setImageDrawable(googleKeepIcon);
-
-            buttonAnyDo.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    onClickToDo(v);
-                }
-            });
-            buttonGoogleKeep.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    onClickToDo(v);
-                }
-            });
-
-        } catch (PackageManager.NameNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        setContentView(layout, params);
+        //
+        setContentView(R.layout.activity_popup);
     }
 
     @Override
     protected void onResume() {
 
-        // Update notification info
-        TextView textViewNotification = (TextView) findViewById(R.id.textViewNotification);
-
-        if (mExtraPackageName != null) {
-
-            textViewNotification.setText(mExtraPackageName + "\n" + mExtraTitle + "\n" + mExtraText);
-
-        }
-        else {
-            textViewNotification.setText("");
-        }
+        //
+        PopupDialogFragment popupDialogFragment = PopupDialogFragment.newInstance(mExtraPackageName, mExtraTitle, mExtraText);
+        popupDialogFragment.show(getFragmentManager(), TAG_POPUP_DIALOG);
 
         super.onResume();
     }
 
-    public void onClickCancel(View view) {
+    @Override
+    protected void onPause() {
+        PopupDialogFragment popupDialogFragment = (PopupDialogFragment) getFragmentManager().findFragmentByTag(TAG_POPUP_DIALOG);
+
+        if ((popupDialogFragment != null) && (popupDialogFragment.getDialog() != null)) {
+            popupDialogFragment.getDialog().dismiss();
+        }
+        else if (!isFinishing()) {
+            finish();
+        }
+
+        super.onPause();
+    }
+
+    @Override
+    public void onPopupDialogDismiss() {
         finish();
     }
 
-    public void onClickToDo(View view) {
+    @Override
+    public void onPopupDialogCancel() {
+        //
+    }
+
+    @Override
+    public void onPopupDialogToDoClick(View view) {
         Intent sendIntent = new Intent();
         sendIntent.setAction(Intent.ACTION_SEND);
         sendIntent.addCategory(Intent.CATEGORY_DEFAULT);
@@ -112,6 +103,16 @@ public class PopupActivity extends Activity {
         startActivity(sendIntent);
 
         finish();
+    }
+
+    @Override
+    public void finish() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            super.finishAndRemoveTask();
+        }
+        else {
+            super.finish();
+        }
     }
 
 }
