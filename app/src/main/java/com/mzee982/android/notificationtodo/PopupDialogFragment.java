@@ -113,19 +113,19 @@ public class PopupDialogFragment extends DialogFragment {
             buttonCancel.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    getDialog().cancel();
+                    onCancelButton(getDialog());
                 }
             });
             buttonAnyDo.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mListener.onPopupDialogToDoClick(v);
+                    onToDo(v, getDialog());
                 }
             });
             buttonGoogleKeep.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mListener.onPopupDialogToDoClick(v);
+                    onToDo(v, getDialog());
                 }
             });
         } catch (PackageManager.NameNotFoundException e) {
@@ -133,6 +133,16 @@ public class PopupDialogFragment extends DialogFragment {
         }
 
         return dialogView;
+    }
+
+    public void onCancelButton(DialogInterface dialog) {
+        dialog.dismiss();
+    }
+
+    public void onToDo(View view, DialogInterface dialog) {
+        mListener.onPopupDialogToDoClick(view);
+
+        dialog.dismiss();
     }
 
     @Override

@@ -1,21 +1,81 @@
 package com.mzee982.android.notificationtodo;
 
-import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.TaskStackBuilder;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.content.LocalBroadcastManager;
 
 import java.util.HashMap;
 
 public class NotificationToDoService extends NotificationListenerService {
 
+    public static final String PREFIX = NotificationToDoService.class.getPackage().getName();
+    public static final String ACTION_POPUP_STATUS =  PREFIX + ".action." + "POPUP_STATUS";
+    public static final String EXTRA_ID = PREFIX + ".extra." + "ID";
+    public static final String EXTRA_POPUP_STATUS_DONE = PREFIX + ".extra." + "POPUP_STATUS_DONE";
+    public static final String EXTRA_POPUP_STATUS_CANCELED = PREFIX + ".extra." + "POPUP_STATUS_CANCELLED";
     private static final int ONGOING_NOTIFICATION_ID = (int)System.currentTimeMillis();
 
     private AppList mAppList;
     private HashMap<String,ToDoNotification> mRegisteredNotifications;
+    private NotificationToDoServiceReceiver mBroadcastReceiver;
+
+    private class NotificationToDoServiceReceiver extends BroadcastReceiver {
+
+        private NotificationToDoServiceReceiver() {
+        }
+
+        public void registerForPopupStatus(Context context) {
+            IntentFilter filter = new IntentFilter(ACTION_POPUP_STATUS);
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
+        }
+
+        public void registerForUserPresent(Context context) {
+            IntentFilter filter = new IntentFilter(Intent.ACTION_USER_PRESENT);
+            registerReceiver(this, filter);
+        }
+
+        public void unregister(Context context) {
+            LocalBroadcastManager.getInstance(context).unregisterReceiver(this);
+            unregisterReceiver(this);
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            if (intent.getAction().equals(ACTION_POPUP_STATUS)) {
+
+                //
+                String id = intent.getStringExtra(EXTRA_ID);
+                boolean isCanceled = intent.getBooleanExtra(EXTRA_POPUP_STATUS_CANCELED, false);
+                boolean isDone = intent.getBooleanExtra(EXTRA_POPUP_STATUS_DONE, false);
+
+                //
+                ToDoNotification toDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, id);
+
+                //
+                if (toDoNotification != null) {
+                    toDoNotification.receivePopupStatus(mRegisteredNotifications, isCanceled, isDone);
+                }
+
+            }
+
+            else if (intent.getAction().equals(Intent.ACTION_USER_PRESENT)) {
+
+                //
+                ToDoNotification.popupCanceled(NotificationToDoService.this, mRegisteredNotifications);
+
+            }
+
+        }
+
+    }
 
     @Override
     public void onCreate() {
@@ -48,11 +108,26 @@ public class NotificationToDoService extends NotificationListenerService {
 
     @Override
     public void onListenerConnected() {
+
+        //
+        mBroadcastReceiver = new NotificationToDoServiceReceiver();
+        mBroadcastReceiver.registerForPopupStatus(this);
+        mBroadcastReceiver.registerForUserPresent(this);
+
+        //
         registerNotifications();
+
     }
 
     @Override
     public void onDestroy() {
+
+        //
+        if (mBroadcastReceiver != null) {
+            mBroadcastReceiver.unregister(this);
+        }
+
+        //
         unregisterNotifications();
 
         // Remove ongoing notification
@@ -67,7 +142,11 @@ public class NotificationToDoService extends NotificationListenerService {
         // Update the notification
         if (isNotificationSelected(sbn)) {
             ToDoNotification toDoNotification = new ToDoNotification(sbn);
+
+            //
             toDoNotification.register(mRegisteredNotifications);
+            toDoNotification.onNotificationPosted(this);
+
         }
 
     }
@@ -76,19 +155,18 @@ public class NotificationToDoService extends NotificationListenerService {
     public void onNotificationRemoved(StatusBarNotification sbn) {
 
         if (isNotificationSelected(sbn)) {
-            ToDoNotification toDoNotification = new ToDoNotification(sbn);
-            Notification notification = toDoNotification.getNotification();
+            String id = ToDoNotification.getIdFor(sbn);
+            ToDoNotification toDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, id);
+
+            if (toDoNotification == null) {
+                toDoNotification = new ToDoNotification(sbn);
+                toDoNotification.register(mRegisteredNotifications);
+            }
 
             //
+            toDoNotification.onNotificationRemoved(this);
             toDoNotification.unregister(mRegisteredNotifications);
 
-            //
-            Intent popupIntent = PopupActivity.newIntent(this,
-                                    sbn.getPackageName(),
-                                    notification.extras.getString(Notification.EXTRA_TITLE),
-                                    notification.extras.getString(Notification.EXTRA_TEXT));
-
-            startActivity(popupIntent);
         }
 
     }
@@ -109,6 +187,8 @@ public class NotificationToDoService extends NotificationListenerService {
                 if (isNotificationSelected(sbn)) {
                     ToDoNotification toDoNotification = new ToDoNotification(sbn);
                     toDoNotification.register(mRegisteredNotifications);
+                    //TODO Check
+                    toDoNotification.onNotificationPosted(this);
                 }
             }
         }

@@ -5,23 +5,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.view.View;
 
 public class PopupActivity extends Activity implements PopupDialogFragment.PopupDialogListener {
 
+    private static final String EXTRA_ID = "EXTRA_ID";
     private static final String EXTRA_PACKAGE_NAME = "EXTRA_PACKAGE_NAME";
     private static final String EXTRA_TITLE = "EXTRA_TITLE";
     private static final String EXTRA_TEXT = "EXTRA_TEXT";
     private static final String TAG_POPUP_DIALOG = "TAG_POPUP_DIALOG";
 
-    String mExtraPackageName;
-    String mExtraTitle;
-    String mExtraText;
+    private String mExtraId;
+    private String mExtraPackageName;
+    private String mExtraTitle;
+    private String mExtraText;
+    private boolean mIsCanceled;
+    private boolean mIsDone;
 
-    public static Intent newIntent(Context context, String packageName, String title, String text) {
+    public static Intent newIntent(Context context, String id, String packageName, String title, String text) {
         Intent popupIntent = new Intent(context, PopupActivity.class);
         popupIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
+        popupIntent.putExtra(EXTRA_ID, id);
         popupIntent.putExtra(EXTRA_PACKAGE_NAME, packageName);
         popupIntent.putExtra(EXTRA_TITLE, title);
         popupIntent.putExtra(EXTRA_TEXT, text);
@@ -39,10 +45,15 @@ public class PopupActivity extends Activity implements PopupDialogFragment.Popup
         if ((intent != null) && (intent.getExtras() != null)) {
             Bundle intentExtras = intent.getExtras();
 
+            mExtraId = intentExtras.getString(EXTRA_ID);
             mExtraPackageName = intentExtras.getString(EXTRA_PACKAGE_NAME);
             mExtraTitle = intentExtras.getString(EXTRA_TITLE);
             mExtraText = intentExtras.getString(EXTRA_TEXT);
         }
+
+        //
+        mIsCanceled = false;
+        mIsDone = false;
 
         //
         setContentView(R.layout.activity_popup);
@@ -60,30 +71,39 @@ public class PopupActivity extends Activity implements PopupDialogFragment.Popup
 
     @Override
     protected void onPause() {
-        PopupDialogFragment popupDialogFragment = (PopupDialogFragment) getFragmentManager().findFragmentByTag(TAG_POPUP_DIALOG);
 
-        if ((popupDialogFragment != null) && (popupDialogFragment.getDialog() != null)) {
-            popupDialogFragment.getDialog().dismiss();
-        }
-        else if (!isFinishing()) {
-            finish();
+        if (!isFinishing()) {
+            PopupDialogFragment popupDialogFragment = (PopupDialogFragment) getFragmentManager().findFragmentByTag(TAG_POPUP_DIALOG);
+
+            // Navigate off the dialog
+            if ((popupDialogFragment != null) && (popupDialogFragment.getDialog() != null) && !mIsDone) {
+                popupDialogFragment.getDialog().cancel();
+            }
+
+            // Dialog not present
+            else {
+                finish();
+            }
+
         }
 
         super.onPause();
     }
 
     @Override
-    public void onPopupDialogDismiss() {
-        finish();
-    }
+    protected void onDestroy() {
 
-    @Override
-    public void onPopupDialogCancel() {
         //
+        sendPopupStatus();
+
+        //
+        super.onDestroy();
     }
 
     @Override
     public void onPopupDialogToDoClick(View view) {
+        mIsDone = true;
+
         Intent sendIntent = new Intent();
         sendIntent.setAction(Intent.ACTION_SEND);
         sendIntent.addCategory(Intent.CATEGORY_DEFAULT);
@@ -101,8 +121,27 @@ public class PopupActivity extends Activity implements PopupDialogFragment.Popup
         }
 
         startActivity(sendIntent);
+    }
 
-        finish();
+    @Override
+    public void onPopupDialogCancel() {
+        mIsCanceled = true;
+    }
+
+    @Override
+    public void onPopupDialogDismiss() {
+        if (!isFinishing()) {
+            finish();
+        }
+    }
+
+    private void sendPopupStatus() {
+        Intent localIntent = new Intent(NotificationToDoService.ACTION_POPUP_STATUS);
+        localIntent.putExtra(NotificationToDoService.EXTRA_ID, mExtraId);
+        localIntent.putExtra(NotificationToDoService.EXTRA_POPUP_STATUS_CANCELED, mIsCanceled);
+        localIntent.putExtra(NotificationToDoService.EXTRA_POPUP_STATUS_DONE, mIsDone);
+
+        LocalBroadcastManager.getInstance(this).sendBroadcast(localIntent);
     }
 
     @Override
