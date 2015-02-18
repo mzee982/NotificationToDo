@@ -7,9 +7,12 @@ import android.service.notification.StatusBarNotification;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ToDoNotification {
     private static final String STATE_CREATED = "STATE_CREATED";
+    private static final String STATE_POPUP_QUEUED = "STATE_POPUP_QUEUED";
+    private static final String STATE_POPUP_CANCELED_QUEUED = "STATE_POPUP_CANCELED_QUEUED";
     private static final String STATE_POPUP = "STATE_POPUP";
     private static final String STATE_POPUP_DONE = "STATE_POPUP_DONE";
     private static final String STATE_POPUP_CANCELED = "STATE_POPUP_CANCELED";
@@ -22,20 +25,58 @@ public class ToDoNotification {
     private StatusBarNotification mStatusBarNotification;
     private String mId;
 
-    public ToDoNotification(StatusBarNotification statusBarNotification) {
+    public ToDoNotification(HashMap<String,ToDoNotification> register, StatusBarNotification statusBarNotification) {
         mState = STATE_CREATED;
         mNotificationState = NOTIFICATION_STATE_NONE;
 
         mStatusBarNotification = statusBarNotification;
-        mId = getIdFor(mStatusBarNotification);
+        mId = getIdFor(register, mStatusBarNotification);
     }
 
-    public static String getIdFor(StatusBarNotification statusBarNotification) {
+    private static String getIdFor(HashMap<String,ToDoNotification> register, StatusBarNotification statusBarNotification) {
         String packageName = statusBarNotification.getPackageName();
-        int id = statusBarNotification.getId();
-        String tag = statusBarNotification.getTag();
+        int sbnId = statusBarNotification.getId();
+        String sbnTag = statusBarNotification.getTag();
 
-        return packageName + " " + id + (tag != null ? " " + tag : "");
+        String baseId = packageName + " " + sbnId + (sbnTag != null ? " " + sbnTag : "");
+        int selector = 0;
+        String id = null;
+
+        //
+        Iterator<String> keyIterator = register.keySet().iterator();
+
+        while (keyIterator.hasNext() && (id == null)) {
+            String key = keyIterator.next();
+
+            // Already registered
+            if (key.startsWith(baseId)) {
+                ToDoNotification toDoNotification = register.get(key);
+
+                // Already registered as posted
+                if (toDoNotification.mNotificationState == NOTIFICATION_STATE_POSTED) {
+                    id = toDoNotification.mId;
+                }
+
+                // Already registered as removed
+                else {
+                    int i = key.lastIndexOf('#');
+                    String foundSelectorString = key.substring(i + 1);
+                    int foundSelector = Integer.parseInt(foundSelectorString);
+
+                    if (selector <= foundSelector) {
+                        selector = foundSelector + 1;
+                    }
+                }
+
+            }
+        }
+
+        //
+        if (id == null) {
+            id = baseId + " #" + selector;
+        }
+
+        return id;
     }
 
     public String getId() {
@@ -46,65 +87,47 @@ public class ToDoNotification {
         return register.get(id);
     }
 
-    public void register(HashMap<String,ToDoNotification> register) {
-        ToDoNotification registeredNotification = register.get(mId);
+    public static ToDoNotification getRegistered(HashMap<String,ToDoNotification> register, StatusBarNotification sbn) {
+        return getRegistered(register, getIdFor(register, sbn));
+    }
 
-        if (mState == STATE_CREATED) {
+    public void register(HashMap<String,ToDoNotification> register, StatusBarNotification sbn) {
+        ToDoNotification registeredNotification = getRegistered(register, mId);
 
-            // Not registered yet
-            if (registeredNotification == null) {
-                register.put(mId, this);
-            }
+        // Not registered yet
+        if (registeredNotification == null) {
+            register.put(mId, this);
+        }
 
-            // Already registered
-            else {
-                switch (registeredNotification.mState) {
-                    case STATE_CREATED:
-                        register.remove(mId);
-                        register.put(mId, this);
-                        break;
-                    case STATE_POPUP:
-//                        updateFrom(registeredNotification);
-                        register.remove(mId);
-                        register.put(mId, this);
-                        break;
-                    case STATE_POPUP_DONE:
-                        register.remove(mId);
-                        register.put(mId, this);
-                        break;
-                    case STATE_POPUP_CANCELED:
-                        register.remove(mId);
-                        register.put(mId, this);
-                        break;
-                }
-
-            }
-
+        // Already registered
+        else {
+            update(sbn);
         }
 
     }
 
     public void unregister(HashMap<String,ToDoNotification> register) {
-        ToDoNotification registeredNotification = register.get(mId);
 
-        //
-        if ((registeredNotification != null) && (registeredNotification.mState == mState)) {
-
-            switch (mState) {
-                case STATE_CREATED:
-                    register.remove(mId);
-                    break;
-                case STATE_POPUP:
-                    break;
-                case STATE_POPUP_DONE:
-                    register.remove(mId);
-                    break;
-                case STATE_POPUP_CANCELED:
-                    break;
-            }
-
+        switch (mState) {
+            case STATE_CREATED:
+                register.remove(mId);
+                break;
+            case STATE_POPUP_QUEUED:
+            case STATE_POPUP_CANCELED_QUEUED:
+                break;
+            case STATE_POPUP:
+                break;
+            case STATE_POPUP_DONE:
+                register.remove(mId);
+                break;
+            case STATE_POPUP_CANCELED:
+                break;
         }
 
+    }
+
+    private void update(StatusBarNotification sbn) {
+        mStatusBarNotification = sbn;
     }
 
     private void updateFrom(ToDoNotification oldToDoNotification) {
@@ -112,7 +135,30 @@ public class ToDoNotification {
         mNotificationState = oldToDoNotification.mNotificationState;
     }
 
-    private void popup(Context context) {
+    private void queuePopup(ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
+
+/*
+STATE_CREATED
+STATE_POPUP_QUEUED
+STATE_POPUP_CANCELED_QUEUED
+STATE_POPUP
+STATE_POPUP_DONE
+STATE_POPUP_CANCELED
+*/
+        //
+        if (mState == STATE_POPUP_CANCELED) {
+            mState = STATE_POPUP_CANCELED_QUEUED;
+        }
+        else {
+            mState = STATE_POPUP_QUEUED;
+        }
+
+        //
+        popupQueue.offer(this);
+
+    }
+
+    public void popup(Context context) {
 
         //
         mState = STATE_POPUP;
@@ -121,6 +167,7 @@ public class ToDoNotification {
         Intent popupIntent = PopupActivity.newIntent(context,
                 mId,
                 mStatusBarNotification.getPackageName(),
+                //TODO Implementation for API Level 18
                 mStatusBarNotification.getNotification().extras.getString(Notification.EXTRA_TITLE),
                 mStatusBarNotification.getNotification().extras.getString(Notification.EXTRA_TEXT));
 
@@ -128,20 +175,10 @@ public class ToDoNotification {
 
     }
 
-    public static void popupCanceled(Context context, HashMap<String,ToDoNotification> register) {
-        Iterator<String> idIterator = register.keySet().iterator();
-
-        while (idIterator.hasNext()) {
-            ToDoNotification toDoNotification = register.get(idIterator.next());
-
-            if (toDoNotification.mState == STATE_POPUP_CANCELED) {
-                toDoNotification.popup(context);
-            }
-        }
-
-    }
-
-    public void receivePopupStatus(HashMap<String,ToDoNotification> register, boolean isCanceled, boolean isDone) {
+    public void receivePopupStatus(HashMap<String,ToDoNotification> register,
+                                   ConcurrentLinkedQueue<ToDoNotification> canceledPopupQueue,
+                                   boolean isCanceled,
+                                   boolean isDone) {
 
         // Done
         if (!isCanceled && isDone) {
@@ -151,19 +188,13 @@ public class ToDoNotification {
         // Canceled
         else if (isCanceled && !isDone) {
             mState = STATE_POPUP_CANCELED;
+            queuePopup(canceledPopupQueue);
         }
 
         // Ignored
         else if (!isCanceled && !isDone) {
             mState = STATE_POPUP_DONE;
         }
-
-/*
-x 0 0 ignored -> done
-x 0 1 done
-x 1 0 canceled
-  1 1 invalid
-*/
 
         //
         if (mNotificationState == NOTIFICATION_STATE_POSTED) {
@@ -179,22 +210,22 @@ x 1 0 canceled
 
     }
 
-    public void onNotificationPosted(Context context) {
+    public void onNotificationPosted(Context context, ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
         mNotificationState = NOTIFICATION_STATE_POSTED;
 
         //TODO Need to popup?
         if (false) {
-            popup(context);
+            queuePopup(popupQueue);
         }
 
     }
 
-    public void  onNotificationRemoved(Context context) {
+    public void  onNotificationRemoved(Context context, ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
         mNotificationState = NOTIFICATION_STATE_REMOVED;
 
         //TODO Need to popup?
         if (true) {
-            popup(context);
+            queuePopup(popupQueue);
         }
 
     }

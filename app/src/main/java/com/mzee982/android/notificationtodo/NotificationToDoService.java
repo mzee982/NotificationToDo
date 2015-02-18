@@ -12,6 +12,8 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Semaphore;
 
 public class NotificationToDoService extends NotificationListenerService {
 
@@ -25,6 +27,10 @@ public class NotificationToDoService extends NotificationListenerService {
     private AppList mAppList;
     private HashMap<String,ToDoNotification> mRegisteredNotifications;
     private NotificationToDoServiceReceiver mBroadcastReceiver;
+    private Semaphore mPopupSemaphore;
+    private ConcurrentLinkedQueue<ToDoNotification> mPopupQueue;
+    private ConcurrentLinkedQueue<ToDoNotification> mCanceledPopupQueue;
+    private ConcurrentLinkedQueue<ToDoNotification> mRePopupQueue;
 
     private class NotificationToDoServiceReceiver extends BroadcastReceiver {
 
@@ -49,9 +55,13 @@ public class NotificationToDoService extends NotificationListenerService {
         @Override
         public void onReceive(Context context, Intent intent) {
 
+            /*
+             * Popup status callback
+             */
+
             if (intent.getAction().equals(ACTION_POPUP_STATUS)) {
 
-                //
+                // Extras
                 String id = intent.getStringExtra(EXTRA_ID);
                 boolean isCanceled = intent.getBooleanExtra(EXTRA_POPUP_STATUS_CANCELED, false);
                 boolean isDone = intent.getBooleanExtra(EXTRA_POPUP_STATUS_DONE, false);
@@ -59,17 +69,24 @@ public class NotificationToDoService extends NotificationListenerService {
                 //
                 ToDoNotification toDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, id);
 
-                //
                 if (toDoNotification != null) {
-                    toDoNotification.receivePopupStatus(mRegisteredNotifications, isCanceled, isDone);
+                    processPopupQueueCallback(toDoNotification);
+                    toDoNotification.receivePopupStatus(mRegisteredNotifications, mCanceledPopupQueue, isCanceled, isDone);
                 }
 
+                //
+                processPopupQueue(false);
+
             }
+
+            /*
+             * Action User Present
+             */
 
             else if (intent.getAction().equals(Intent.ACTION_USER_PRESENT)) {
 
                 //
-                ToDoNotification.popupCanceled(NotificationToDoService.this, mRegisteredNotifications);
+                processPopupQueue(true);
 
             }
 
@@ -84,6 +101,10 @@ public class NotificationToDoService extends NotificationListenerService {
         //
         mAppList = new AppList(this);
         mRegisteredNotifications = new HashMap<>();
+        mPopupSemaphore = new Semaphore(1);
+        mPopupQueue = new ConcurrentLinkedQueue<>();
+        mCanceledPopupQueue = new ConcurrentLinkedQueue<>();
+        mRePopupQueue = new ConcurrentLinkedQueue<>();
 
         /*
          * Post ongoing notification
@@ -141,12 +162,19 @@ public class NotificationToDoService extends NotificationListenerService {
 
         // Update the notification
         if (isNotificationSelected(sbn)) {
-            ToDoNotification toDoNotification = new ToDoNotification(sbn);
+
+            // Already registered as posted?
+            ToDoNotification postedToDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, sbn);
+
+            // Not registered yet
+            if (postedToDoNotification == null) {
+                postedToDoNotification = new ToDoNotification(mRegisteredNotifications, sbn);
+            }
 
             //
-            toDoNotification.register(mRegisteredNotifications);
-            toDoNotification.onNotificationPosted(this);
-
+            postedToDoNotification.register(mRegisteredNotifications, sbn);
+            postedToDoNotification.onNotificationPosted(this, mPopupQueue);
+            processPopupQueue(false);
         }
 
     }
@@ -155,18 +183,20 @@ public class NotificationToDoService extends NotificationListenerService {
     public void onNotificationRemoved(StatusBarNotification sbn) {
 
         if (isNotificationSelected(sbn)) {
-            String id = ToDoNotification.getIdFor(sbn);
-            ToDoNotification toDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, id);
 
-            if (toDoNotification == null) {
-                toDoNotification = new ToDoNotification(sbn);
-                toDoNotification.register(mRegisteredNotifications);
+            // Already registered as posted?
+            ToDoNotification removedToDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, sbn);
+
+            // Not registered yet
+            if (removedToDoNotification == null) {
+                removedToDoNotification = new ToDoNotification(mRegisteredNotifications, sbn);
+                removedToDoNotification.register(mRegisteredNotifications, sbn);
             }
 
             //
-            toDoNotification.onNotificationRemoved(this);
-            toDoNotification.unregister(mRegisteredNotifications);
-
+            removedToDoNotification.onNotificationRemoved(this, mPopupQueue);
+            removedToDoNotification.unregister(mRegisteredNotifications);
+            processPopupQueue(false);
         }
 
     }
@@ -185,10 +215,10 @@ public class NotificationToDoService extends NotificationListenerService {
         if (statusBarNotifications != null) {
             for (StatusBarNotification sbn : statusBarNotifications) {
                 if (isNotificationSelected(sbn)) {
-                    ToDoNotification toDoNotification = new ToDoNotification(sbn);
-                    toDoNotification.register(mRegisteredNotifications);
-                    //TODO Check
-                    toDoNotification.onNotificationPosted(this);
+                    ToDoNotification toDoNotification = new ToDoNotification(mRegisteredNotifications, sbn);
+                    toDoNotification.register(mRegisteredNotifications, sbn);
+                    toDoNotification.onNotificationPosted(this, mPopupQueue);
+                    processPopupQueue(false);
                 }
             }
         }
@@ -196,6 +226,79 @@ public class NotificationToDoService extends NotificationListenerService {
 
     private void unregisterNotifications() {
         mRegisteredNotifications.clear();
+    }
+
+    private void processPopupQueue(boolean processCanceled) {
+        boolean permit = false;
+
+        try {
+            permit = mPopupSemaphore.tryAcquire();
+
+            if (permit) {
+
+                // Re-schedule canceled popups
+                if (processCanceled) {
+
+                    // mCanceledPopupQueue -> mRePopupQueue
+                    while (!mCanceledPopupQueue.isEmpty()) {
+                        mRePopupQueue.offer(mCanceledPopupQueue.poll());
+                    }
+
+                }
+
+                // Popup re-scheduled first
+                if (!mRePopupQueue.isEmpty()) {
+                    ToDoNotification toDoNotification = mRePopupQueue.peek();
+                    toDoNotification.popup(this);
+                }
+
+                // Popup queued
+                else if (!mPopupQueue.isEmpty()) {
+                    ToDoNotification toDoNotification = mPopupQueue.peek();
+                    toDoNotification.popup(this);
+                }
+
+                // No more queued Popup
+                else {
+                    mPopupSemaphore.release();
+                }
+
+            }
+        }
+
+        catch (Exception e) {
+            synchronized (mPopupSemaphore) {
+                if (permit && (mPopupSemaphore.availablePermits() == 0)) mPopupSemaphore.release();
+            }
+        }
+
+        finally {
+            // Release semaphore later
+        }
+
+    }
+
+    private void processPopupQueueCallback(ToDoNotification toDoNotification) {
+
+        try {
+
+            // Remove Popup from queues
+            if (toDoNotification != null) {
+                mRePopupQueue.remove(toDoNotification);
+                mPopupQueue.remove(toDoNotification);
+            }
+
+        }
+
+        finally {
+
+            // Release semaphore
+            synchronized (mPopupSemaphore) {
+                if (mPopupSemaphore.availablePermits() == 0) mPopupSemaphore.release();
+            }
+
+        }
+
     }
 
 }
