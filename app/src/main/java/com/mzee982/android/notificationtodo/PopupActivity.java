@@ -136,11 +136,7 @@ public class PopupActivity extends Activity implements PopupDialogFragment.Popup
     }
 
     private void sendPopupStatus() {
-        Intent localIntent = new Intent(NotificationToDoService.ACTION_POPUP_STATUS);
-        localIntent.putExtra(NotificationToDoService.EXTRA_ID, mExtraId);
-        localIntent.putExtra(NotificationToDoService.EXTRA_POPUP_STATUS_CANCELED, mIsCanceled);
-        localIntent.putExtra(NotificationToDoService.EXTRA_POPUP_STATUS_DONE, mIsDone);
-
+        Intent localIntent = NotificationToDoService.newPopupStatusIntent(mExtraId, mIsCanceled, mIsDone);
         LocalBroadcastManager.getInstance(this).sendBroadcast(localIntent);
     }
 

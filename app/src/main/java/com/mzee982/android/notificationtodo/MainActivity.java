@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -73,13 +74,6 @@ public class MainActivity extends ActionBarActivity implements ChooseApplication
     }
 
     @Override
-    protected void onStop() {
-        if (mAppList != null) mAppList.save(this);
-
-        super.onStop();
-    }
-
-    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
@@ -116,13 +110,13 @@ public class MainActivity extends ActionBarActivity implements ChooseApplication
 
     }
 
-    public AppList getAppList() {
-        return mAppList;
-    }
-
     @Override
     public void onDialogPositiveClick(ArrayList<Long> selectedIds) {
         mAppList.setSelectedIds(selectedIds);
+        mAppList.save(this);
+
+        Intent localIntent = NotificationToDoService.newAppListRefreshIntent();
+        LocalBroadcastManager.getInstance(this).sendBroadcast(localIntent);
 
         mSelectedApplicationsAdapter.clear();
         mSelectedApplicationsAdapter.addAll(mAppList.getSelectedList());
@@ -151,6 +145,10 @@ public class MainActivity extends ActionBarActivity implements ChooseApplication
 
         NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         mNotificationManager.notify((int) System.currentTimeMillis(), builder.build());
+    }
+
+    public AppList getAppList() {
+        return mAppList;
     }
 
 }

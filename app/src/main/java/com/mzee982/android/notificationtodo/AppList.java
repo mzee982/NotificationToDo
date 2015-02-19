@@ -18,13 +18,11 @@ public class AppList {
     private static final String SHARED_PREFERENCES_KEY_SELECTED_IDS = "SHARED_PREFERENCES_KEY_SELECTED_IDS";
     private static final char DELIMITER = ',';
 
-    private PackageManager mPackageManager;
     private ArrayList<AppEntry> mList;
     private ArrayList<Long> mSelectedIds;
 
     public AppList(Context context) {
-        mPackageManager = context.getPackageManager();
-        mList = getLauncherApplicationList();
+        mList = getLauncherApplicationList(context);
         mSelectedIds = new ArrayList<Long>();
 
         // Load selections
@@ -34,18 +32,19 @@ public class AppList {
         sort();
     }
 
-    private ArrayList<AppEntry> getLauncherApplicationList() {
+    private ArrayList<AppEntry> getLauncherApplicationList(Context context) {
+        PackageManager packageManager = context.getPackageManager();
         ArrayList<AppEntry> applicationList = new ArrayList<AppEntry>();
 
         Intent queryIntent = new Intent();
         queryIntent.setAction(Intent.ACTION_MAIN);
         queryIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-        List<ResolveInfo> intentActivities = mPackageManager.queryIntentActivities(queryIntent, 0);
+        List<ResolveInfo> intentActivities = packageManager.queryIntentActivities(queryIntent, 0);
 
         for (ResolveInfo resolveInfo : intentActivities) {
-            Drawable appIcon = resolveInfo.loadIcon(mPackageManager);
-            CharSequence appLabelCS = resolveInfo.loadLabel(mPackageManager);
+            Drawable appIcon = resolveInfo.loadIcon(packageManager);
+            CharSequence appLabelCS = resolveInfo.loadLabel(packageManager);
             String appLabel = appLabelCS != null ? appLabelCS.toString() : "";
             String appPackageName = resolveInfo.activityInfo.packageName;
 
@@ -92,7 +91,7 @@ public class AppList {
         editor.commit();
     }
 
-    public void load(Context context) {
+    private void load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
         String selectedIdsString = prefs.getString(SHARED_PREFERENCES_KEY_SELECTED_IDS, "");
 

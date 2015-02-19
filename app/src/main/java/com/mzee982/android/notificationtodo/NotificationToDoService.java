@@ -17,11 +17,12 @@ import java.util.concurrent.Semaphore;
 
 public class NotificationToDoService extends NotificationListenerService {
 
-    public static final String PREFIX = NotificationToDoService.class.getPackage().getName();
-    public static final String ACTION_POPUP_STATUS =  PREFIX + ".action." + "POPUP_STATUS";
-    public static final String EXTRA_ID = PREFIX + ".extra." + "ID";
-    public static final String EXTRA_POPUP_STATUS_DONE = PREFIX + ".extra." + "POPUP_STATUS_DONE";
-    public static final String EXTRA_POPUP_STATUS_CANCELED = PREFIX + ".extra." + "POPUP_STATUS_CANCELLED";
+    private static final String PREFIX = NotificationToDoService.class.getPackage().getName();
+    private static final String ACTION_POPUP_STATUS =  PREFIX + ".action." + "POPUP_STATUS";
+    private static final String ACTION_APPLIST_REFRESH =  PREFIX + ".action." + "APPLIST_REFRESH";
+    private static final String EXTRA_ID = PREFIX + ".extra." + "ID";
+    private static final String EXTRA_POPUP_STATUS_DONE = PREFIX + ".extra." + "POPUP_STATUS_DONE";
+    private static final String EXTRA_POPUP_STATUS_CANCELED = PREFIX + ".extra." + "POPUP_STATUS_CANCELLED";
     private static final int ONGOING_NOTIFICATION_ID = (int)System.currentTimeMillis();
 
     private AppList mAppList;
@@ -45,6 +46,11 @@ public class NotificationToDoService extends NotificationListenerService {
         public void registerForUserPresent(Context context) {
             IntentFilter filter = new IntentFilter(Intent.ACTION_USER_PRESENT);
             registerReceiver(this, filter);
+        }
+
+        public void registerForAppListRefresh(Context context) {
+            IntentFilter filter = new IntentFilter(ACTION_APPLIST_REFRESH);
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
         }
 
         public void unregister(Context context) {
@@ -90,8 +96,34 @@ public class NotificationToDoService extends NotificationListenerService {
 
             }
 
+            /*
+             * App List Refresh
+             */
+
+            else if (intent.getAction().equals(ACTION_APPLIST_REFRESH)) {
+
+                //
+                mAppList = new AppList(NotificationToDoService.this);
+
+            }
+
         }
 
+    }
+
+    public static Intent newPopupStatusIntent(String id, boolean canceled, boolean done) {
+        Intent intent = new Intent(ACTION_POPUP_STATUS);
+        intent.putExtra(NotificationToDoService.EXTRA_ID, id);
+        intent.putExtra(NotificationToDoService.EXTRA_POPUP_STATUS_CANCELED, canceled);
+        intent.putExtra(NotificationToDoService.EXTRA_POPUP_STATUS_DONE, done);
+
+        return intent;
+    }
+
+    public static Intent newAppListRefreshIntent() {
+        Intent intent = new Intent(ACTION_APPLIST_REFRESH);
+
+        return intent;
     }
 
     @Override
@@ -134,6 +166,7 @@ public class NotificationToDoService extends NotificationListenerService {
         mBroadcastReceiver = new NotificationToDoServiceReceiver();
         mBroadcastReceiver.registerForPopupStatus(this);
         mBroadcastReceiver.registerForUserPresent(this);
+        mBroadcastReceiver.registerForAppListRefresh(this);
 
         //
         registerNotifications();
@@ -160,21 +193,30 @@ public class NotificationToDoService extends NotificationListenerService {
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
 
-        // Update the notification
-        if (isNotificationSelected(sbn)) {
+        // Already registered as posted?
+        ToDoNotification postedToDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, sbn);
 
-            // Already registered as posted?
-            ToDoNotification postedToDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, sbn);
+        //
+        if (isNotificationSelected(sbn)) {
 
             // Not registered yet
             if (postedToDoNotification == null) {
                 postedToDoNotification = new ToDoNotification(mRegisteredNotifications, sbn);
             }
 
-            //
+            // Register
             postedToDoNotification.register(mRegisteredNotifications, sbn);
             postedToDoNotification.onNotificationPosted(this, mPopupQueue);
             processPopupQueue(false);
+        }
+
+        //
+        else {
+
+            if (postedToDoNotification != null) {
+                postedToDoNotification.unregister(mRegisteredNotifications);
+            }
+
         }
 
     }
@@ -182,10 +224,11 @@ public class NotificationToDoService extends NotificationListenerService {
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
 
-        if (isNotificationSelected(sbn)) {
+        // Already registered as posted?
+        ToDoNotification removedToDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, sbn);
 
-            // Already registered as posted?
-            ToDoNotification removedToDoNotification = ToDoNotification.getRegistered(mRegisteredNotifications, sbn);
+        //
+        if (isNotificationSelected(sbn)) {
 
             // Not registered yet
             if (removedToDoNotification == null) {
@@ -197,6 +240,15 @@ public class NotificationToDoService extends NotificationListenerService {
             removedToDoNotification.onNotificationRemoved(this, mPopupQueue);
             removedToDoNotification.unregister(mRegisteredNotifications);
             processPopupQueue(false);
+        }
+
+        //
+        else {
+
+            if (removedToDoNotification != null) {
+                removedToDoNotification.unregister(mRegisteredNotifications);
+            }
+
         }
 
     }
