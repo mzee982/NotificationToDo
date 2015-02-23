@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
+import android.app.Fragment;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -34,13 +35,13 @@ public class ChooseApplicationsDialogFragment extends DialogFragment
     public void onAttach(Activity activity) {
         super.onAttach(activity);
 
-        // Verify that the host activity implements the callback interface
+        Fragment fragment = null;
+
         try {
-            // Instantiate the Listener so we can send events to the host
-            mListener = (ChooseApplicationsDialogListener) activity;
+            fragment = getFragmentManager().findFragmentByTag(ApplicationsFragment.TAG);
+            mListener = (ChooseApplicationsDialogListener) fragment;
         } catch (ClassCastException e) {
-            // The activity doesn't implement the interface, throw exception
-            throw new ClassCastException(activity.toString()
+            throw new ClassCastException((fragment != null) ? fragment.toString() : "null"
                     + " must implement ChooseApplicationsDialogListener");
         }
 

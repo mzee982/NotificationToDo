@@ -1,76 +1,63 @@
 package com.mzee982.android.notificationtodo;
 
-import android.app.DialogFragment;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.app.TaskStackBuilder;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.content.Intent;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.GridView;
-import android.widget.Switch;
-import android.widget.TextView;
 
-import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-
-
-public class MainActivity extends ActionBarActivity implements ChooseApplicationsDialogFragment.ChooseApplicationsDialogListener {
-
-    private AppList mAppList;
-    private ApplicationArrayAdapter mSelectedApplicationsAdapter;
+public class MainActivity extends ActionBarActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        //
         setContentView(R.layout.activity_main);
 
-        mAppList = new AppList(this);
+        //
+        FragmentManager fragmentManager = getFragmentManager();
 
-        mSelectedApplicationsAdapter = new ApplicationArrayAdapter(this,
-                                                    ApplicationArrayAdapter.MODE_GRID,
-                                                    mAppList.getSelectedList(),
-                                                    null);
+        // Existing fragments
+        ServiceStatusFragment serviceStatusFragment = (ServiceStatusFragment) fragmentManager.findFragmentByTag(ServiceStatusFragment.TAG);
+        ApplicationsFragment applicationsFragment = (ApplicationsFragment) fragmentManager.findFragmentByTag(ApplicationsFragment.TAG);
+
+        // Add/Remove fragments
+        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
+
+        if (serviceStatusFragment != null) fragmentTransaction.remove(serviceStatusFragment);
+
+        serviceStatusFragment = new ServiceStatusFragment();
+        fragmentTransaction.add(R.id.fragmentContainer, serviceStatusFragment, ServiceStatusFragment.TAG);
+
+        if (applicationsFragment != null) fragmentTransaction.remove(applicationsFragment);
+
+        applicationsFragment = new ApplicationsFragment();
+        fragmentTransaction.add(R.id.fragmentContainer, applicationsFragment, ApplicationsFragment.TAG);
+
+        fragmentTransaction.commit();
+
     }
 
     @Override
-    protected void onResume() {
+    protected void onDestroy() {
 
-        /*
-         * Update service status
-         */
+        //
+/*
+        FragmentManager fragmentManager = getFragmentManager();
+        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
 
-        ContentResolver contentResolver = getContentResolver();
-        String enabledNotificationListeners = Settings.Secure.getString(contentResolver, "enabled_notification_listeners");
-        String packageName = getPackageName();
-        boolean serviceStatus = !(enabledNotificationListeners == null || !enabledNotificationListeners.contains(packageName));
+        ServiceStatusFragment serviceStatusFragment = (ServiceStatusFragment) fragmentManager.findFragmentByTag(ServiceStatusFragment.TAG);
+        ApplicationsFragment applicationsFragment = (ApplicationsFragment) fragmentManager.findFragmentByTag(ApplicationsFragment.TAG);
 
-        if (serviceStatus) {
-            ((Switch) findViewById(R.id.switchService)).setChecked(true);
-            ((TextView) findViewById(R.id.textStatusSub)).setText("Enabled");
-        }
-        else {
-            ((Switch) findViewById(R.id.switchService)).setChecked(false);
-            ((TextView) findViewById(R.id.textStatusSub)).setText("Disabled");
-        }
+        if (serviceStatusFragment != null) fragmentTransaction.remove(serviceStatusFragment);
+        if (applicationsFragment != null) fragmentTransaction.remove(applicationsFragment);
 
-        /*
-         * Selected applications
-         */
+        fragmentTransaction.commitAllowingStateLoss();
+*/
 
-        GridView gridSelectedApplications = (GridView) findViewById(R.id.gridSelectedApplications);
-        gridSelectedApplications.setAdapter(mSelectedApplicationsAdapter);
-
-        super.onResume();
+        super.onDestroy();
     }
 
     @Override
@@ -93,62 +80,6 @@ public class MainActivity extends ActionBarActivity implements ChooseApplication
         }
 
         return super.onOptionsItemSelected(item);
-    }
-
-    public void onClickSwitchService(View view) {
-
-        // Go to Notification Access Settings
-        startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
-
-    }
-
-    public void onClickApplicationsNew(View view) {
-
-        // Show application chooser dialog
-        DialogFragment dialogFragment = new ChooseApplicationsDialogFragment();
-        dialogFragment.show(getFragmentManager(), "chooseApplications");
-
-    }
-
-    @Override
-    public void onDialogPositiveClick(ArrayList<Long> selectedIds) {
-        mAppList.setSelectedIds(selectedIds);
-        mAppList.save(this);
-
-        Intent localIntent = NotificationToDoService.newAppListRefreshIntent();
-        LocalBroadcastManager.getInstance(this).sendBroadcast(localIntent);
-
-        mSelectedApplicationsAdapter.clear();
-        mSelectedApplicationsAdapter.addAll(mAppList.getSelectedList());
-    }
-
-    @Override
-    public void onDialogNegativeClick() {
-
-    }
-
-    public void onTestNotificationClick(View view) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Notification To Do")
-                .setContentText(DateFormat.getDateTimeInstance().format(new Date()))
-                .setAutoCancel(true);
-
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-
-        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
-        stackBuilder.addParentStack(MainActivity.class);
-        stackBuilder.addNextIntent(notificationIntent);
-        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        builder.setContentIntent(pendingIntent);
-
-        NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        mNotificationManager.notify((int) System.currentTimeMillis(), builder.build());
-    }
-
-    public AppList getAppList() {
-        return mAppList;
     }
 
 }

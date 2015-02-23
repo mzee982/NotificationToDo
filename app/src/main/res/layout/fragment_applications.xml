@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layoutApplications"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="32dp"
+    android:background="@android:color/background_light">
+
+    <RelativeLayout
+        android:id="@+id/layoutApplicationsHeader"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:background="@android:color/darker_gray">
+
+        <TextView
+            android:id="@+id/textApplicationsHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="Applications" />
+
+        <ImageButton
+            android:id="@+id/imageButtonApplicationsNew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_action_new" />
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/layoutSelectedApplications"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp">
+
+        <GridLayout
+            android:id="@+id/gridLayoutSelectedApplications"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:useDefaultMargins="false"
+            android:layout_margin="0dp">
+
+        </GridLayout>
+
+    </RelativeLayout>
+
+</LinearLayout>
