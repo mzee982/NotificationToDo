@@ -83,6 +83,18 @@ public class ToDoNotification {
         return mId;
     }
 
+    public String getPackageName() {
+        return mStatusBarNotification.getPackageName();
+    }
+
+    public String getState() {
+        return mState;
+    }
+
+    public String getNotificationState() {
+        return mNotificationState;
+    }
+
     public static ToDoNotification getRegistered(HashMap<String,ToDoNotification> register, String id) {
         return register.get(id);
     }

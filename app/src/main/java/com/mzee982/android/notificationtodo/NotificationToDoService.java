@@ -6,23 +6,28 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 
 public class NotificationToDoService extends NotificationListenerService {
 
-    private static final String PREFIX = NotificationToDoService.class.getPackage().getName();
-    private static final String ACTION_POPUP_STATUS =  PREFIX + ".action." + "POPUP_STATUS";
-    private static final String ACTION_APPLIST_REFRESH =  PREFIX + ".action." + "APPLIST_REFRESH";
-    private static final String EXTRA_ID = PREFIX + ".extra." + "ID";
-    private static final String EXTRA_POPUP_STATUS_DONE = PREFIX + ".extra." + "POPUP_STATUS_DONE";
-    private static final String EXTRA_POPUP_STATUS_CANCELED = PREFIX + ".extra." + "POPUP_STATUS_CANCELLED";
+    private static final String CLASS_PREFIX = NotificationToDoService.class.getPackage().getName();
+    private static final String ACTION_PREFIX = ".action.";
+    private static final String EXTRA_PREFIX = ".extra.";
+    private static final String ACTION_POPUP_STATUS =  CLASS_PREFIX + ACTION_PREFIX + "POPUP_STATUS";
+    private static final String ACTION_APPLIST_REFRESH =  CLASS_PREFIX + ACTION_PREFIX + "APPLIST_REFRESH";
+    private static final String ACTION_NOTIFICATION_STATUS_REQUEST = CLASS_PREFIX + ACTION_PREFIX + "NOTIFICATION_STATUS_REQUEST";
+    private static final String EXTRA_ID = CLASS_PREFIX + EXTRA_PREFIX + "ID";
+    private static final String EXTRA_POPUP_STATUS_DONE = CLASS_PREFIX + EXTRA_PREFIX + "POPUP_STATUS_DONE";
+    private static final String EXTRA_POPUP_STATUS_CANCELED = CLASS_PREFIX + EXTRA_PREFIX + "POPUP_STATUS_CANCELLED";
     private static final int ONGOING_NOTIFICATION_ID = (int)System.currentTimeMillis();
 
     private AppList mAppList;
@@ -53,6 +58,11 @@ public class NotificationToDoService extends NotificationListenerService {
             LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
         }
 
+        public void registerForNotificationStatusRequest(Context context) {
+            IntentFilter filter = new IntentFilter(ACTION_NOTIFICATION_STATUS_REQUEST);
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
+        }
+
         public void unregister(Context context) {
             LocalBroadcastManager.getInstance(context).unregisterReceiver(this);
             unregisterReceiver(this);
@@ -62,7 +72,7 @@ public class NotificationToDoService extends NotificationListenerService {
         public void onReceive(Context context, Intent intent) {
 
             /*
-             * Popup status callback
+             * Popup Status Callback
              */
 
             if (intent.getAction().equals(ACTION_POPUP_STATUS)) {
@@ -78,6 +88,7 @@ public class NotificationToDoService extends NotificationListenerService {
                 if (toDoNotification != null) {
                     processPopupQueueCallback(toDoNotification);
                     toDoNotification.receivePopupStatus(mRegisteredNotifications, mCanceledPopupQueue, isCanceled, isDone);
+                    sendNotificationStatusResponse(context);
                 }
 
                 //
@@ -107,6 +118,17 @@ public class NotificationToDoService extends NotificationListenerService {
 
             }
 
+            /*
+             * Notification Status Request
+             */
+
+            else if (intent.getAction().equals(ACTION_NOTIFICATION_STATUS_REQUEST)) {
+
+                // Notification status response
+                sendNotificationStatusResponse(context);
+
+            }
+
         }
 
     }
@@ -122,7 +144,11 @@ public class NotificationToDoService extends NotificationListenerService {
 
     public static Intent newAppListRefreshIntent() {
         Intent intent = new Intent(ACTION_APPLIST_REFRESH);
+        return intent;
+    }
 
+    public static Intent newNotificationStatusRequestIntent() {
+        Intent intent = new Intent(ACTION_NOTIFICATION_STATUS_REQUEST);
         return intent;
     }
 
@@ -167,6 +193,7 @@ public class NotificationToDoService extends NotificationListenerService {
         mBroadcastReceiver.registerForPopupStatus(this);
         mBroadcastReceiver.registerForUserPresent(this);
         mBroadcastReceiver.registerForAppListRefresh(this);
+        mBroadcastReceiver.registerForNotificationStatusRequest(this);
 
         //
         registerNotifications();
@@ -207,6 +234,7 @@ public class NotificationToDoService extends NotificationListenerService {
             // Register
             postedToDoNotification.register(mRegisteredNotifications, sbn);
             postedToDoNotification.onNotificationPosted(this, mPopupQueue);
+            sendNotificationStatusResponse(this);
             processPopupQueue(false);
         }
 
@@ -215,6 +243,7 @@ public class NotificationToDoService extends NotificationListenerService {
 
             if (postedToDoNotification != null) {
                 postedToDoNotification.unregister(mRegisteredNotifications);
+                sendNotificationStatusResponse(this);
             }
 
         }
@@ -239,6 +268,7 @@ public class NotificationToDoService extends NotificationListenerService {
             //
             removedToDoNotification.onNotificationRemoved(this, mPopupQueue);
             removedToDoNotification.unregister(mRegisteredNotifications);
+            sendNotificationStatusResponse(this);
             processPopupQueue(false);
         }
 
@@ -247,6 +277,7 @@ public class NotificationToDoService extends NotificationListenerService {
 
             if (removedToDoNotification != null) {
                 removedToDoNotification.unregister(mRegisteredNotifications);
+                sendNotificationStatusResponse(this);
             }
 
         }
@@ -274,10 +305,13 @@ public class NotificationToDoService extends NotificationListenerService {
                 }
             }
         }
+
+        sendNotificationStatusResponse(this);
     }
 
     private void unregisterNotifications() {
         mRegisteredNotifications.clear();
+        sendNotificationStatusResponse(this);
     }
 
     private void processPopupQueue(boolean processCanceled) {
@@ -351,6 +385,31 @@ public class NotificationToDoService extends NotificationListenerService {
 
         }
 
+    }
+
+    private Bundle assembleNotificationStatusResponse() {
+        Bundle statusResponseBundle = new Bundle();
+        Iterator<String> keySetIterator = mRegisteredNotifications.keySet().iterator();
+
+        while (keySetIterator.hasNext()) {
+            String key = keySetIterator.next();
+            ToDoNotification toDoNotification = mRegisteredNotifications.get(key);
+
+            String[] statusEntry = new String[3];
+            statusEntry[0] = toDoNotification.getPackageName();
+            statusEntry[1] = toDoNotification.getState();
+            statusEntry[2] = toDoNotification.getNotificationState();
+
+            statusResponseBundle.putStringArray(key, statusEntry);
+        }
+
+        return statusResponseBundle;
+    }
+
+    private void sendNotificationStatusResponse(Context context) {
+        Bundle notificationStatusResponseBundle = assembleNotificationStatusResponse();
+        Intent localIntent = NotificationStatusFragment.newNotificationStatusResponseIntent(notificationStatusResponseBundle);
+        LocalBroadcastManager.getInstance(context).sendBroadcast(localIntent);
     }
 
 }

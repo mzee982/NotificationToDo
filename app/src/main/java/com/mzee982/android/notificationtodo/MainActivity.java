@@ -26,13 +26,13 @@ public class MainActivity extends ActionBarActivity {
         // Add/Remove fragments
         FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
 
+        // Service Status Fragment
         if (serviceStatusFragment != null) fragmentTransaction.remove(serviceStatusFragment);
-
         serviceStatusFragment = new ServiceStatusFragment();
         fragmentTransaction.add(R.id.fragmentContainer, serviceStatusFragment, ServiceStatusFragment.TAG);
 
+        // Applications Fragment
         if (applicationsFragment != null) fragmentTransaction.remove(applicationsFragment);
-
         applicationsFragment = new ApplicationsFragment();
         fragmentTransaction.add(R.id.fragmentContainer, applicationsFragment, ApplicationsFragment.TAG);
 
@@ -41,23 +41,28 @@ public class MainActivity extends ActionBarActivity {
     }
 
     @Override
-    protected void onDestroy() {
-
-        //
-/*
+    protected void onResume() {
         FragmentManager fragmentManager = getFragmentManager();
-        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
 
         ServiceStatusFragment serviceStatusFragment = (ServiceStatusFragment) fragmentManager.findFragmentByTag(ServiceStatusFragment.TAG);
-        ApplicationsFragment applicationsFragment = (ApplicationsFragment) fragmentManager.findFragmentByTag(ApplicationsFragment.TAG);
+        NotificationStatusFragment notificationStatusFragment = (NotificationStatusFragment) fragmentManager.findFragmentByTag(NotificationStatusFragment.TAG);
 
-        if (serviceStatusFragment != null) fragmentTransaction.remove(serviceStatusFragment);
-        if (applicationsFragment != null) fragmentTransaction.remove(applicationsFragment);
+        // Add Notification Status Fragment
+        if ((serviceStatusFragment != null) && (serviceStatusFragment.isServiceEnabledInSettings())) {
+            if (notificationStatusFragment == null) {
+                notificationStatusFragment = new NotificationStatusFragment();
+                fragmentManager.beginTransaction().add(R.id.fragmentContainer, notificationStatusFragment, NotificationStatusFragment.TAG).commit();
+            }
+        }
 
-        fragmentTransaction.commitAllowingStateLoss();
-*/
+        // Remove Notification Status Fragment
+        else {
+            if (notificationStatusFragment != null) {
+                fragmentManager.beginTransaction().remove(notificationStatusFragment).commit();
+            }
+        }
 
-        super.onDestroy();
+        super.onResume();
     }
 
     @Override

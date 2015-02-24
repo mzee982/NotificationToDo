@@ -94,7 +94,7 @@ public class ServiceStatusFragment extends Fragment {
         mNotificationManager.notify((int) System.currentTimeMillis(), builder.build());
     }
 
-    private boolean isServiceEnabledInSettings() {
+    public boolean isServiceEnabledInSettings() {
         ContentResolver contentResolver = getActivity().getContentResolver();
         String enabledNotificationListeners = Settings.Secure.getString(contentResolver, "enabled_notification_listeners");
         String packageName = getActivity().getPackageName();

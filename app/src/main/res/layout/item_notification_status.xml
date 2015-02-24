@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp"
+    android:layout_margin="8dp"
+    android:background="#eeeeee">
+
+    <TextView
+        android:id="@+id/textId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:singleLine="true"
+        android:text="Id" />
+
+    <TextView
+        android:id="@+id/textPackage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:singleLine="true"
+        android:text="Package" />
+
+    <TextView
+        android:id="@+id/textStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:singleLine="true"
+        android:text="Status" />
+
+    <TextView
+        android:id="@+id/textNotificationStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:singleLine="true"
+        android:text="Notification Status" />
+
+</LinearLayout>
