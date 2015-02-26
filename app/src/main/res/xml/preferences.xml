@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <CheckBoxPreference
+        android:key="pref_key_service_run_in_foreground"
+        android:title="@string/pref_title_service_run_in_foreground"
+        android:summary="@string/pref_summary_service_run_in_foreground"
+        android:defaultValue="true" />
+    <ListPreference
+        android:key="pref_key_popup_trigger"
+        android:title="@string/pref_title_popup_trigger"
+        android:dialogTitle="@string/pref_dialog_title_popup_trigger"
+        android:entries="@array/pref_entries_popup_trigger"
+        android:entryValues="@array/pref_values_popup_trigger"
+        android:defaultValue="@string/pref_default_popup_trigger" />
+</PreferenceScreen>

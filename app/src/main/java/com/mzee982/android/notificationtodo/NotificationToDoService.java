@@ -6,7 +6,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationCompat;
@@ -164,25 +166,12 @@ public class NotificationToDoService extends NotificationListenerService {
         mCanceledPopupQueue = new ConcurrentLinkedQueue<>();
         mRePopupQueue = new ConcurrentLinkedQueue<>();
 
-        /*
-         * Post ongoing notification
-         */
+        // Post ongoing notification
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean prefServiceRunInForeground = sharedPreferences.getBoolean(SettingsFragment.PREF_KEY_SERVICE_RUN_IN_FOREGROUND, true);
 
-        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
-        notificationBuilder.setSmallIcon(R.mipmap.ic_launcher);
-        notificationBuilder.setContentTitle("Notification To Do Service");
-        notificationBuilder.setContentText("Running");
+        if (prefServiceRunInForeground) startForeground();
 
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-
-        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
-        stackBuilder.addParentStack(MainActivity.class);
-        stackBuilder.addNextIntent(notificationIntent);
-        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        notificationBuilder.setContentIntent(pendingIntent);
-
-        startForeground(ONGOING_NOTIFICATION_ID, notificationBuilder.build());
     }
 
     @Override
@@ -282,6 +271,24 @@ public class NotificationToDoService extends NotificationListenerService {
 
         }
 
+    }
+
+    private void startForeground() {
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
+        notificationBuilder.setSmallIcon(R.mipmap.ic_launcher);
+        notificationBuilder.setContentTitle("Notification To Do Service");
+        notificationBuilder.setContentText("Running");
+
+        Intent notificationIntent = new Intent(this, MainActivity.class);
+
+        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+        stackBuilder.addParentStack(MainActivity.class);
+        stackBuilder.addNextIntent(notificationIntent);
+        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        notificationBuilder.setContentIntent(pendingIntent);
+
+        startForeground(ONGOING_NOTIFICATION_ID, notificationBuilder.build());
     }
 
     private boolean isNotificationSelected(StatusBarNotification sbn) {
