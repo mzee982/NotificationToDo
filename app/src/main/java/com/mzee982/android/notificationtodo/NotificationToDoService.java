@@ -6,9 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationCompat;
@@ -25,14 +23,16 @@ public class NotificationToDoService extends NotificationListenerService {
     private static final String ACTION_PREFIX = ".action.";
     private static final String EXTRA_PREFIX = ".extra.";
     private static final String ACTION_POPUP_STATUS =  CLASS_PREFIX + ACTION_PREFIX + "POPUP_STATUS";
-    private static final String ACTION_APPLIST_REFRESH =  CLASS_PREFIX + ACTION_PREFIX + "APPLIST_REFRESH";
     private static final String ACTION_NOTIFICATION_STATUS_REQUEST = CLASS_PREFIX + ACTION_PREFIX + "NOTIFICATION_STATUS_REQUEST";
+    private static final String ACTION_CONFIGURATION_CHECK_REQUEST = CLASS_PREFIX + ACTION_PREFIX + "CONFIGURATION_CHECK_REQUEST";
+    private static final String ACTION_RESTART_REQUEST = CLASS_PREFIX + ACTION_PREFIX + "RESTART_REQUEST";
     private static final String EXTRA_ID = CLASS_PREFIX + EXTRA_PREFIX + "ID";
     private static final String EXTRA_POPUP_STATUS_DONE = CLASS_PREFIX + EXTRA_PREFIX + "POPUP_STATUS_DONE";
     private static final String EXTRA_POPUP_STATUS_CANCELED = CLASS_PREFIX + EXTRA_PREFIX + "POPUP_STATUS_CANCELLED";
     private static final int ONGOING_NOTIFICATION_ID = (int)System.currentTimeMillis();
 
-    private AppList mAppList;
+    private boolean mListenerConnected = false;
+    private Configuration mConfiguration;
     private HashMap<String,ToDoNotification> mRegisteredNotifications;
     private NotificationToDoServiceReceiver mBroadcastReceiver;
     private Semaphore mPopupSemaphore;
@@ -45,39 +45,35 @@ public class NotificationToDoService extends NotificationListenerService {
         private NotificationToDoServiceReceiver() {
         }
 
-        public void registerForPopupStatus(Context context) {
-            IntentFilter filter = new IntentFilter(ACTION_POPUP_STATUS);
-            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
-        }
-
-        public void registerForUserPresent(Context context) {
-            IntentFilter filter = new IntentFilter(Intent.ACTION_USER_PRESENT);
-            registerReceiver(this, filter);
-        }
-
-        public void registerForAppListRefresh(Context context) {
-            IntentFilter filter = new IntentFilter(ACTION_APPLIST_REFRESH);
-            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
-        }
-
-        public void registerForNotificationStatusRequest(Context context) {
-            IntentFilter filter = new IntentFilter(ACTION_NOTIFICATION_STATUS_REQUEST);
-            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
+        public void register(Context context) {
+            registerReceiver(this, new IntentFilter(Intent.ACTION_USER_PRESENT));
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, new IntentFilter(ACTION_POPUP_STATUS));
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, new IntentFilter(ACTION_NOTIFICATION_STATUS_REQUEST));
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, new IntentFilter(ACTION_CONFIGURATION_CHECK_REQUEST));
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, new IntentFilter(ACTION_RESTART_REQUEST));
         }
 
         public void unregister(Context context) {
-            LocalBroadcastManager.getInstance(context).unregisterReceiver(this);
             unregisterReceiver(this);
+            LocalBroadcastManager.getInstance(context).unregisterReceiver(this);
         }
 
         @Override
         public void onReceive(Context context, Intent intent) {
 
             /*
+             * Action User Present
+             */
+
+            if (intent.getAction().equals(Intent.ACTION_USER_PRESENT)) {
+                processPopupQueue(true);
+            }
+
+            /*
              * Popup Status Callback
              */
 
-            if (intent.getAction().equals(ACTION_POPUP_STATUS)) {
+            else if (intent.getAction().equals(ACTION_POPUP_STATUS)) {
 
                 // Extras
                 String id = intent.getStringExtra(EXTRA_ID);
@@ -99,28 +95,6 @@ public class NotificationToDoService extends NotificationListenerService {
             }
 
             /*
-             * Action User Present
-             */
-
-            else if (intent.getAction().equals(Intent.ACTION_USER_PRESENT)) {
-
-                //
-                processPopupQueue(true);
-
-            }
-
-            /*
-             * App List Refresh
-             */
-
-            else if (intent.getAction().equals(ACTION_APPLIST_REFRESH)) {
-
-                //
-                mAppList = new AppList(NotificationToDoService.this);
-
-            }
-
-            /*
              * Notification Status Request
              */
 
@@ -128,6 +102,29 @@ public class NotificationToDoService extends NotificationListenerService {
 
                 // Notification status response
                 sendNotificationStatusResponse(context);
+
+            }
+
+            /*
+             * Configuration Check Request
+             */
+
+            else if (intent.getAction().equals(ACTION_CONFIGURATION_CHECK_REQUEST)) {
+
+                // Service restart request
+                boolean isObsolete = mConfiguration.isObsolete(NotificationToDoService.this);
+                sendServiceRestartRequest(context, isObsolete);
+
+            }
+
+            /*
+             * Restart Request
+             */
+
+            else if (intent.getAction().equals(ACTION_RESTART_REQUEST)) {
+
+                // Re-initialize the service
+                restart(context);
 
             }
 
@@ -144,13 +141,18 @@ public class NotificationToDoService extends NotificationListenerService {
         return intent;
     }
 
-    public static Intent newAppListRefreshIntent() {
-        Intent intent = new Intent(ACTION_APPLIST_REFRESH);
+    public static Intent newNotificationStatusRequestIntent() {
+        Intent intent = new Intent(ACTION_NOTIFICATION_STATUS_REQUEST);
         return intent;
     }
 
-    public static Intent newNotificationStatusRequestIntent() {
-        Intent intent = new Intent(ACTION_NOTIFICATION_STATUS_REQUEST);
+    public static Intent newConfigurationCheckRequestIntent() {
+        Intent intent = new Intent(ACTION_CONFIGURATION_CHECK_REQUEST);
+        return intent;
+    }
+
+    public static Intent newRestartRequest() {
+        Intent intent = new Intent(ACTION_RESTART_REQUEST);
         return intent;
     }
 
@@ -158,51 +160,18 @@ public class NotificationToDoService extends NotificationListenerService {
     public void onCreate() {
         super.onCreate();
 
-        //
-        mAppList = new AppList(this);
-        mRegisteredNotifications = new HashMap<>();
-        mPopupSemaphore = new Semaphore(1);
-        mPopupQueue = new ConcurrentLinkedQueue<>();
-        mCanceledPopupQueue = new ConcurrentLinkedQueue<>();
-        mRePopupQueue = new ConcurrentLinkedQueue<>();
-
-        // Post ongoing notification
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean prefServiceRunInForeground = sharedPreferences.getBoolean(SettingsFragment.PREF_KEY_SERVICE_RUN_IN_FOREGROUND, true);
-
-        if (prefServiceRunInForeground) startForeground();
-
+        initialize();
     }
 
     @Override
     public void onListenerConnected() {
-
-        //
-        mBroadcastReceiver = new NotificationToDoServiceReceiver();
-        mBroadcastReceiver.registerForPopupStatus(this);
-        mBroadcastReceiver.registerForUserPresent(this);
-        mBroadcastReceiver.registerForAppListRefresh(this);
-        mBroadcastReceiver.registerForNotificationStatusRequest(this);
-
-        //
-        registerNotifications();
-
+        mListenerConnected = true;
+        start();
     }
 
     @Override
     public void onDestroy() {
-
-        //
-        if (mBroadcastReceiver != null) {
-            mBroadcastReceiver.unregister(this);
-        }
-
-        //
-        unregisterNotifications();
-
-        // Remove ongoing notification
-        stopForeground(true);
-
+        shutdown();
         super.onDestroy();
     }
 
@@ -273,6 +242,60 @@ public class NotificationToDoService extends NotificationListenerService {
 
     }
 
+    private void initialize() {
+
+        //
+        mConfiguration = new Configuration(this);
+        mRegisteredNotifications = new HashMap<>();
+        mPopupSemaphore = new Semaphore(1);
+        mPopupQueue = new ConcurrentLinkedQueue<>();
+        mCanceledPopupQueue = new ConcurrentLinkedQueue<>();
+        mRePopupQueue = new ConcurrentLinkedQueue<>();
+
+        // Post ongoing notification
+        if (mConfiguration.isServiceRunInForeground()) startForeground();
+
+    }
+
+    private void restart(Context context) {
+
+        //
+        shutdown();
+        initialize();
+        if (mListenerConnected) start();
+
+        // Service restart request
+        boolean isObsolete = mConfiguration.isObsolete(NotificationToDoService.this);
+        sendServiceRestartRequest(context, isObsolete);
+
+    }
+
+    private void start() {
+
+        // Start broadcast receiver
+        mBroadcastReceiver = new NotificationToDoServiceReceiver();
+        mBroadcastReceiver.register(this);
+
+        // Register posted notifications from notification drawer
+        registerNotifications();
+
+    }
+
+    private void shutdown() {
+
+        // Shut down broadcast receiver
+        if (mBroadcastReceiver != null) {
+            mBroadcastReceiver.unregister(this);
+        }
+
+        // Unregister notifications
+        unregisterNotifications();
+
+        // Remove ongoing notification
+        stopForeground(true);
+
+    }
+
     private void startForeground() {
         NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this);
         notificationBuilder.setSmallIcon(R.mipmap.ic_launcher);
@@ -292,7 +315,7 @@ public class NotificationToDoService extends NotificationListenerService {
     }
 
     private boolean isNotificationSelected(StatusBarNotification sbn) {
-        boolean packageSelected = (mAppList != null) && mAppList.isPackageSelected(sbn.getPackageName());
+        boolean packageSelected = (mConfiguration.getAppList() != null) && mConfiguration.getAppList().isPackageSelected(sbn.getPackageName());
         boolean selfPackage = sbn.getPackageName().equals(getPackageName());
         boolean selfNotificationId = sbn.getId() == ONGOING_NOTIFICATION_ID;
 
@@ -416,6 +439,11 @@ public class NotificationToDoService extends NotificationListenerService {
     private void sendNotificationStatusResponse(Context context) {
         Bundle notificationStatusResponseBundle = assembleNotificationStatusResponse();
         Intent localIntent = NotificationStatusFragment.newNotificationStatusResponseIntent(notificationStatusResponseBundle);
+        LocalBroadcastManager.getInstance(context).sendBroadcast(localIntent);
+    }
+
+    private void sendServiceRestartRequest(Context context, boolean isObsolete) {
+        Intent localIntent = ServiceStatusFragment.newServiceRestartRequestIntent(isObsolete);
         LocalBroadcastManager.getInstance(context).sendBroadcast(localIntent);
     }
 

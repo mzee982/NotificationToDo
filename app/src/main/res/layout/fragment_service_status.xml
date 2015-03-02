@@ -62,6 +62,30 @@
     </RelativeLayout>
 
     <RelativeLayout
+        android:id="@+id/layoutServiceRestartWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/textServiceRestartWarning"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:textColor="@android:color/holo_red_light"
+            android:text="Service need to be restarted due to configuration change" />
+
+        <Button
+            android:id="@+id/buttonServiceRestart"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/textServiceRestartWarning"
+            android:text="Restart" />
+
+    </RelativeLayout>
+
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="8dp">
@@ -70,7 +94,6 @@
             android:id="@+id/buttonTestNotification"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="onClickTestNotification"
             android:text="Test notification" />
 
     </RelativeLayout>

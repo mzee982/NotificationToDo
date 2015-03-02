@@ -18,18 +18,18 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
 
     public static final String TAG = "FRAGMENT_APPLICATIONS";
 
-    private AppList mAppList;
+    private Configuration mConfiguration;
     private ApplicationArrayAdapter mSelectedApplicationsAdapter;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAppList = new AppList(getActivity());
+        mConfiguration = new Configuration(getActivity());
 
         mSelectedApplicationsAdapter = new ApplicationArrayAdapter(getActivity(),
                 ApplicationArrayAdapter.MODE_GRID,
-                mAppList.getSelectedList(),
+                mConfiguration.getAppList().getSelectedList(),
                 null);
     }
 
@@ -67,14 +67,12 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
 
     @Override
     public void onDialogPositiveClick(ArrayList<Long> selectedIds) {
-        mAppList.setSelectedIds(selectedIds);
-        mAppList.save(getActivity());
+        mConfiguration.getAppList().setSelectedIds(selectedIds);
 
-        Intent localIntent = NotificationToDoService.newAppListRefreshIntent();
-        LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(localIntent);
+        mConfiguration.commit(getActivity());
 
         mSelectedApplicationsAdapter.clear();
-        mSelectedApplicationsAdapter.addAll(mAppList.getSelectedList());
+        mSelectedApplicationsAdapter.addAll(mConfiguration.getAppList().getSelectedList());
 
         refreshSelectedApplicationsGrid();
     }
@@ -85,7 +83,7 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
     }
 
     public AppList getAppList() {
-        return mAppList;
+        return mConfiguration.getAppList();
     }
 
     private void refreshSelectedApplicationsGrid() {
@@ -130,5 +128,14 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
         });
 
     }
+
+    private void requestConfigurationCheck() {
+
+        // Configuration check request
+        Intent localIntent = NotificationToDoService.newConfigurationCheckRequestIntent();
+        LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(localIntent);
+
+    }
+
 
 }

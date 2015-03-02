@@ -28,9 +28,8 @@ public class NotificationStatusFragment extends Fragment {
 
     private class NotificationStatusFragmentReceiver extends BroadcastReceiver {
 
-        public void registerForNotificationStatusResponse(Context context) {
-            IntentFilter filter = new IntentFilter(ACTION_NOTIFICATION_STATUS_RESPONSE);
-            LocalBroadcastManager.getInstance(context).registerReceiver(this, filter);
+        public void register(Context context) {
+            LocalBroadcastManager.getInstance(context).registerReceiver(this, new IntentFilter(ACTION_NOTIFICATION_STATUS_RESPONSE));
         }
 
         public void unregister(Context context) {
@@ -45,10 +44,7 @@ public class NotificationStatusFragment extends Fragment {
              */
 
             if (intent.getAction().equals(ACTION_NOTIFICATION_STATUS_RESPONSE)) {
-
-                //
                 updateNotificationStatus(intent.getExtras());
-
             }
 
         }
@@ -91,7 +87,7 @@ public class NotificationStatusFragment extends Fragment {
     public void onResume() {
 
         // Register local broadcast receiver
-        mNotificationStatusFragmentReceiver.registerForNotificationStatusResponse(getActivity());
+        mNotificationStatusFragmentReceiver.register(getActivity());
 
         //
         requestNotificationStatusRefresh();

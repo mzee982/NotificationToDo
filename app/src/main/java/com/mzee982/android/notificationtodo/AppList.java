@@ -82,6 +82,12 @@ public class AppList {
         mSelectedIds = selectedIds;
     }
 
+    public boolean isChanged(Context context) {
+        ArrayList<Long> persistedSelectedIds = loadSelectedIds(context);
+
+        return (persistedSelectedIds.size() != mSelectedIds.size()) || !(mSelectedIds.containsAll(persistedSelectedIds));
+    }
+
     public void save(Context context) {
         String selectedIdsString = TextUtils.join(String.valueOf(DELIMITER), mSelectedIds);
 
@@ -91,19 +97,28 @@ public class AppList {
         editor.commit();
     }
 
-    private void load(Context context) {
+    private ArrayList<Long> loadSelectedIds(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
         String selectedIdsString = prefs.getString(SHARED_PREFERENCES_KEY_SELECTED_IDS, "");
 
         TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(DELIMITER);
         splitter.setString(selectedIdsString);
 
-        mSelectedIds.clear();
+        ArrayList<Long> selectedIds = new ArrayList();
 
         while (splitter.hasNext()) {
             String token = splitter.next();
-            mSelectedIds.add(Long.parseLong(token));
+            selectedIds.add(Long.parseLong(token));
         }
+
+        return selectedIds;
+    }
+
+    private void load(Context context) {
+        ArrayList<Long> persistedSelectedIds = loadSelectedIds(context);
+
+        mSelectedIds.clear();
+        mSelectedIds.addAll(persistedSelectedIds);
     }
 
     public boolean isPackageSelected(String packageName) {

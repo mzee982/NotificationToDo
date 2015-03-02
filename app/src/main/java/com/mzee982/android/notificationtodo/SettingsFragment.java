@@ -6,20 +6,15 @@ import android.preference.ListPreference;
 import android.preference.PreferenceFragment;
 
 public class SettingsFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
-
-    public static final String PREF_KEY_SERVICE_RUN_IN_FOREGROUND = "pref_key_service_run_in_foreground";
-    public static final String PREF_KEY_POPUP_TRIGGER = "pref_key_popup_trigger";
+    private Configuration mConfiguration;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        //
+        mConfiguration = new Configuration(getActivity());
         addPreferencesFromResource(R.xml.preferences);
-
-        //
         updateSummaries();
-
     }
 
     @Override
@@ -33,7 +28,12 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
     public void onPause() {
         super.onPause();
 
+        //
         getPreferenceScreen().getSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
+
+        //
+        mConfiguration.commit(getActivity());
+
     }
 
     @Override
@@ -50,9 +50,9 @@ public class SettingsFragment extends PreferenceFragment implements SharedPrefer
         if (sharedPreferences ==  null) sharedPreferences = getPreferenceManager().getSharedPreferences();
 
         //
-        String targetKey = (key != null) ? key : PREF_KEY_POPUP_TRIGGER;
+        String targetKey = (key != null) ? key : Configuration.PREF_KEY_POPUP_TRIGGER;
 
-        if (targetKey.equals(PREF_KEY_POPUP_TRIGGER)) {
+        if (targetKey.equals(Configuration.PREF_KEY_POPUP_TRIGGER)) {
             ListPreference popupTriggerPreference = (ListPreference) findPreference(targetKey);
 
             String prefValuePopupTriggerPosted = getString(R.string.pref_value_popup_trigger_posted);
