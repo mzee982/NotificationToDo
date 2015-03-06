@@ -222,21 +222,19 @@ STATE_POPUP_CANCELED
 
     }
 
-    public void onNotificationPosted(Context context, ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
+    public void onNotificationPosted(Configuration configuration, ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
         mNotificationState = NOTIFICATION_STATE_POSTED;
 
-        //TODO Need to popup?
-        if (false) {
+        if (configuration.getPopupTrigger().equals(Configuration.PREF_VALUE_POPUP_TRIGGER_POSTED)) {
             queuePopup(popupQueue);
         }
 
     }
 
-    public void  onNotificationRemoved(Context context, ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
+    public void  onNotificationRemoved(Configuration configuration, ConcurrentLinkedQueue<ToDoNotification> popupQueue) {
         mNotificationState = NOTIFICATION_STATE_REMOVED;
 
-        //TODO Need to popup?
-        if (true) {
+        if (configuration.getPopupTrigger().equals(Configuration.PREF_VALUE_POPUP_TRIGGER_REMOVED)) {
             queuePopup(popupQueue);
         }
 

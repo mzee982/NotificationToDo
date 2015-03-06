@@ -191,7 +191,7 @@ public class NotificationToDoService extends NotificationListenerService {
 
             // Register
             postedToDoNotification.register(mRegisteredNotifications, sbn);
-            postedToDoNotification.onNotificationPosted(this, mPopupQueue);
+            postedToDoNotification.onNotificationPosted(mConfiguration, mPopupQueue);
             sendNotificationStatusResponse(this);
             processPopupQueue(false);
         }
@@ -224,7 +224,7 @@ public class NotificationToDoService extends NotificationListenerService {
             }
 
             //
-            removedToDoNotification.onNotificationRemoved(this, mPopupQueue);
+            removedToDoNotification.onNotificationRemoved(mConfiguration, mPopupQueue);
             removedToDoNotification.unregister(mRegisteredNotifications);
             sendNotificationStatusResponse(this);
             processPopupQueue(false);
@@ -330,7 +330,7 @@ public class NotificationToDoService extends NotificationListenerService {
                 if (isNotificationSelected(sbn)) {
                     ToDoNotification toDoNotification = new ToDoNotification(mRegisteredNotifications, sbn);
                     toDoNotification.register(mRegisteredNotifications, sbn);
-                    toDoNotification.onNotificationPosted(this, mPopupQueue);
+                    toDoNotification.onNotificationPosted(mConfiguration, mPopupQueue);
                     processPopupQueue(false);
                 }
             }

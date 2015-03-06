@@ -10,6 +10,8 @@ public class Configuration {
     private static final String PREF_KEY_VERSION = "pref_key_version";
     private static final String PREF_KEY_SERVICE_RUN_IN_FOREGROUND = "pref_key_service_run_in_foreground";
     public static final String PREF_KEY_POPUP_TRIGGER = "pref_key_popup_trigger";
+    public static final String PREF_VALUE_POPUP_TRIGGER_POSTED = "POPUP_TRIGGER_POSTED";
+    public static final String PREF_VALUE_POPUP_TRIGGER_REMOVED = "POPUP_TRIGGER_REMOVED";
 
     private int mVersion;
     private boolean mServiceRunInForeground;
