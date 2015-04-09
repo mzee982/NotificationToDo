@@ -176,12 +176,8 @@ STATE_POPUP_CANCELED
         mState = STATE_POPUP;
 
         //
-        Intent popupIntent = PopupActivity.newIntent(context,
-                mId,
-                mStatusBarNotification.getPackageName(),
-                //TODO Implementation for API Level 18
-                mStatusBarNotification.getNotification().extras.getString(Notification.EXTRA_TITLE),
-                mStatusBarNotification.getNotification().extras.getString(Notification.EXTRA_TEXT));
+        NotificationDetails notificationDetails = new NotificationDetails(context, mId, mStatusBarNotification);
+        Intent popupIntent = PopupActivity.newIntent(context, notificationDetails);
 
         context.startActivity(popupIntent);
 

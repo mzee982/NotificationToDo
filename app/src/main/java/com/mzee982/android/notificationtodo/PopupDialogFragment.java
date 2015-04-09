@@ -7,10 +7,13 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.text.Editable;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -19,25 +22,44 @@ public class PopupDialogFragment extends DialogFragment {
     public interface PopupDialogListener {
         public void onPopupDialogDismiss();
         public void onPopupDialogCancel();
-        public void onPopupDialogToDoClick(View view);
+        public void onPopupDialogToDoClick(View view, String extraText);
     }
 
-    public static final String ARG_PACKAGE_NAME = "ARG_PACKAGE_NAME";
-    public static final String ARG_TITLE = "ARG_TITLE";
-    public static final String ARG_TEXT = "ARG_TEXT";
+    private class NotificationTextSelectionListener implements View.OnClickListener {
+        private EditText mTargetEditText;
+
+        public NotificationTextSelectionListener(EditText targetEditText) {
+            mTargetEditText = targetEditText;
+        }
+
+        @Override
+        public void onClick(View v) {
+            if (v instanceof ViewGroup) {
+                View childView = ((ViewGroup) v).getChildAt(0);
+
+                if ((childView != null) && (childView instanceof TextView)) {
+                    CharSequence notificationText = ((TextView) childView).getText();
+                    Editable targetEditable = mTargetEditText.getEditableText();
+                    int selectionStart = mTargetEditText.getSelectionStart();
+                    int selectionEnd = mTargetEditText.getSelectionEnd();
+
+                    targetEditable.replace(selectionStart, selectionEnd, notificationText);
+                }
+            }
+        }
+
+    }
+
+    private static final String ARG_NOTIFICATION_DETAILS = "ARG_NOTIFICATION_DETAILS";
 
     private PopupDialogListener mListener;
-    private String mPackageName;
-    private String mTitle;
-    private String mText;
+    private NotificationDetails mNotificationDetails;
 
-    public static PopupDialogFragment newInstance(String packageName, String title, String text) {
+    public static PopupDialogFragment newInstance(NotificationDetails notificationDetails) {
         PopupDialogFragment popupDialogFragment = new PopupDialogFragment();
 
         Bundle args = new Bundle();
-        args.putString(ARG_PACKAGE_NAME, packageName);
-        args.putString(ARG_TITLE, title);
-        args.putString(ARG_TEXT, text);
+        args.putParcelable(ARG_NOTIFICATION_DETAILS, notificationDetails);
 
         popupDialogFragment.setArguments(args);
 
@@ -66,9 +88,7 @@ public class PopupDialogFragment extends DialogFragment {
 
         //
         Bundle args = getArguments();
-        mPackageName = args.getString(ARG_PACKAGE_NAME);
-        mTitle = args.getString(ARG_TITLE);
-        mText = args.getString(ARG_TEXT);
+        mNotificationDetails = (NotificationDetails) args.getParcelable(ARG_NOTIFICATION_DETAILS);
 
         //
         int style = DialogFragment.STYLE_NORMAL;
@@ -87,16 +107,12 @@ public class PopupDialogFragment extends DialogFragment {
 
         //
         View dialogView = inflater.inflate(R.layout.dialog_popup, container, false);
+        EditText editTextNotification = (EditText) dialogView.findViewById(R.id.editTextNotification);
 
         //
-        TextView textViewNotification = (TextView) dialogView.findViewById(R.id.textViewNotification);
-
-        if (mPackageName != null) {
-            textViewNotification.setText(mPackageName + "\n" + mTitle + "\n" + mText);
-        }
-        else {
-            textViewNotification.setText("");
-        }
+        View notificationView = mNotificationDetails.inflateSelectableNotificationContent(getActivity(), new NotificationTextSelectionListener(editTextNotification));
+        FrameLayout frameLayoutNotification = (FrameLayout) dialogView.findViewById(R.id.frameLayoutNotification);
+        frameLayoutNotification.addView(notificationView);
 
         //
         try {
@@ -140,7 +156,10 @@ public class PopupDialogFragment extends DialogFragment {
     }
 
     public void onToDo(View view, DialogInterface dialog) {
-        mListener.onPopupDialogToDoClick(view);
+        EditText editTextNotification = (EditText) getDialog().findViewById(R.id.editTextNotification);
+        String extraText = editTextNotification.getText().toString();
+
+        mListener.onPopupDialogToDoClick(view, extraText);
 
         dialog.dismiss();
     }

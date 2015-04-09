@@ -103,6 +103,7 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
         gridLayoutSelectedApplications.post(new Runnable() {
             @Override
             public void run() {
+                //TODO Investigate getActivity() is null
                 GridLayout gridLayoutSelectedApplications = (GridLayout) getActivity().findViewById(R.id.gridLayoutSelectedApplications);
 
                 // Column count
