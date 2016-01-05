@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.service.notification.StatusBarNotification;
+import android.text.format.DateFormat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +17,6 @@ import android.widget.LinearLayout;
 import android.widget.RemoteViews;
 import android.widget.TextView;
 
-import java.text.DateFormat;
 import java.util.Date;
 import java.util.LinkedList;
 
@@ -79,7 +79,7 @@ public class NotificationDetails implements Parcelable {
 
         // API level 19 and above
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            extract_v19(notification);
+            extract_v19(context, notification);
         }
 
         // API level 18
@@ -90,13 +90,12 @@ public class NotificationDetails implements Parcelable {
     }
 
     @TargetApi(19)
-    private void extract_v19(Notification notification) {
+    private void extract_v19(Context context, Notification notification) {
         Bundle extras = notification.extras;
 
         mTitle = extras.getString(Notification.EXTRA_TITLE);
         mText = extras.getString(Notification.EXTRA_TEXT);
-        Date when = new Date(notification.when);
-        mWhen = DateFormat.getTimeInstance().format(when); //TODO Check
+        mWhen = DateFormat.getTimeFormat(context).format(new Date(notification.when));
     }
 
     private void extract_v18(Context context) {

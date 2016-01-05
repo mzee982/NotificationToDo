@@ -20,6 +20,7 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
 
     private Configuration mConfiguration;
     private ApplicationArrayAdapter mSelectedApplicationsAdapter;
+    private GridLayout mGridLayoutSelectedApplications;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -46,6 +47,8 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
                 onClickApplicationsNew(v);
             }
         });
+
+        mGridLayoutSelectedApplications = (GridLayout) fragmentApplications.findViewById(R.id.gridLayoutSelectedApplications);
 
         return fragmentApplications;
     }
@@ -89,40 +92,36 @@ public class ApplicationsFragment extends Fragment implements ChooseApplications
     private void refreshSelectedApplicationsGrid() {
 
         // Grid layout init
-        GridLayout gridLayoutSelectedApplications = (GridLayout) getActivity().findViewById(R.id.gridLayoutSelectedApplications);
-        gridLayoutSelectedApplications.removeAllViews();
-        gridLayoutSelectedApplications.setColumnCount(1);
+        mGridLayoutSelectedApplications.removeAllViews();
+        mGridLayoutSelectedApplications.setColumnCount(1);
 
         // First grid item
         if (mSelectedApplicationsAdapter.getCount() > 0) {
-            View gridItem = mSelectedApplicationsAdapter.getView(0, null, gridLayoutSelectedApplications);
-            gridLayoutSelectedApplications.addView(gridItem);
+            View gridItem = mSelectedApplicationsAdapter.getView(0, null, mGridLayoutSelectedApplications);
+            mGridLayoutSelectedApplications.addView(gridItem);
         }
 
         //
-        gridLayoutSelectedApplications.post(new Runnable() {
+        mGridLayoutSelectedApplications.post(new Runnable() {
             @Override
             public void run() {
-                //TODO Investigate getActivity() is null
-                GridLayout gridLayoutSelectedApplications = (GridLayout) getActivity().findViewById(R.id.gridLayoutSelectedApplications);
 
                 // Column count
-                if (gridLayoutSelectedApplications.getChildCount() > 0) {
-                    GridLayout layoutSelectedApplications = (GridLayout) getActivity().findViewById(R.id.gridLayoutSelectedApplications);
-                    View child = gridLayoutSelectedApplications.getChildAt(0);
+                if (mGridLayoutSelectedApplications.getChildCount() > 0) {
+                    View child = mGridLayoutSelectedApplications.getChildAt(0);
                     ViewGroup.MarginLayoutParams childLayoutParams = (ViewGroup.MarginLayoutParams) child.getLayoutParams();
 
                     int childWidth = child.getWidth();
                     int childMargin = childLayoutParams.leftMargin + childLayoutParams.rightMargin;
-                    int layoutWidth = layoutSelectedApplications.getWidth();
+                    int layoutWidth = mGridLayoutSelectedApplications.getWidth();
 
-                    layoutSelectedApplications.setColumnCount(layoutWidth / (childWidth + childMargin));
+                    mGridLayoutSelectedApplications.setColumnCount(layoutWidth / (childWidth + childMargin));
                 }
 
                 // More grid items
                 for (int i = 1; i < mSelectedApplicationsAdapter.getCount(); i++) {
-                    View gridItem = mSelectedApplicationsAdapter.getView(i, null, gridLayoutSelectedApplications);
-                    gridLayoutSelectedApplications.addView(gridItem);
+                    View gridItem = mSelectedApplicationsAdapter.getView(i, null, mGridLayoutSelectedApplications);
+                    mGridLayoutSelectedApplications.addView(gridItem);
                 }
 
             }
